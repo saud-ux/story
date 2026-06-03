@@ -1,0 +1,17 @@
+{
+  "name": "qissa-jamaiya",
+  "version": "1.0.0",
+  "description": "قصة جماعية — realtime collaborative story game (one sentence per player, then vote)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

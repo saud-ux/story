@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <title>قصة جماعية</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- Cinematic background layers -->
+  <div class="bg-gradient" aria-hidden="true"></div>
+  <div class="bg-grain" aria-hidden="true"></div>
+  <div class="bg-vignette" aria-hidden="true"></div>
+  <div class="bg-tension" id="tensionVignette" aria-hidden="true"></div>
+
+  <!-- Top corner persisted toggles -->
+  <div class="toggles">
+    <button id="toggleMute" class="toggle-btn" title="كتم الصوت" aria-label="كتم الصوت">🔊</button>
+    <button id="toggleMotion" class="toggle-btn" title="تقليل الحركة" aria-label="تقليل الحركة">🎞️</button>
+  </div>
+
+  <main id="app">
+    <!-- 1. LANDING -->
+    <section id="screen-landing" class="screen active">
+      <div class="brand">
+        <h1 class="brand-title">قصة جماعية</h1>
+        <p class="brand-sub">اكتبوا قصة معًا، جملة لكل لاعب… ثم صوّتوا للأفضل.</p>
+      </div>
+
+      <div class="card">
+        <label class="field-label" for="nameInput">اسمك</label>
+        <input id="nameInput" class="text-input" type="text" maxlength="24" placeholder="اكتب اسمك…" autocomplete="off" />
+
+        <div class="landing-actions">
+          <button id="btnCreate" class="btn btn-primary">إنشاء غرفة</button>
+          <button id="btnShowJoin" class="btn btn-ghost">الدخول بكود</button>
+        </div>
+
+        <div id="joinRow" class="join-row hidden">
+          <input id="codeInput" class="text-input code-field" type="text" maxlength="4" placeholder="ABCD" autocomplete="off" inputmode="latin" />
+          <button id="btnJoin" class="btn btn-primary">دخول</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. LOBBY -->
+    <section id="screen-lobby" class="screen">
+      <div class="lobby-code-wrap">
+        <span class="muted small">كود الغرفة</span>
+        <div class="code-display">
+          <span id="lobbyCode" class="code-big">----</span>
+          <button id="btnCopyCode" class="icon-btn" title="نسخ الكود" aria-label="نسخ الكود">⧉</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <span class="section-title">اللاعبون</span>
+          <span id="lobbyCount" class="pill">0/7</span>
+        </div>
+        <ul id="playersList" class="players-list"></ul>
+        <p id="lobbyHint" class="muted small center"></p>
+      </div>
+
+      <div id="hostControls" class="card hidden">
+        <span class="section-title">جملة البداية</span>
+        <p class="muted small">اختر بداية جاهزة أو اكتب بدايتك.</p>
+        <div id="presetList" class="preset-list"></div>
+        <div class="or-divider"><span>أو</span></div>
+        <textarea id="customStarter" class="text-input area" rows="2" maxlength="200" placeholder="اكتب جملة بداية…"></textarea>
+        <div class="row-between">
+          <span id="customCounter" class="muted small">0/200</span>
+          <button id="btnUseCustom" class="btn btn-ghost btn-sm">استخدم جملتي</button>
+        </div>
+        <div id="chosenStarter" class="chosen-starter hidden"></div>
+        <button id="btnStart" class="btn btn-primary btn-block" disabled>ابدأ اللعبة</button>
+      </div>
+
+      <p id="lobbyWaitGuest" class="muted center hidden">بانتظار أن يبدأ المضيف اللعبة…</p>
+    </section>
+
+    <!-- 3 + 4. WRITING -->
+    <section id="screen-writing" class="screen">
+      <div class="writing-head">
+        <div id="turnBanner" class="turn-banner"></div>
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+            <circle id="ringProgress" class="ring-progress" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <span id="ringNum" class="ring-num">30</span>
+        </div>
+      </div>
+
+      <div id="storyPanel" class="story-panel" aria-live="polite"></div>
+
+      <div id="writeArea" class="write-area hidden">
+        <textarea id="sentenceInput" class="text-input area" rows="2" maxlength="200" placeholder="اكتب جملة واحدة فقط…"></textarea>
+        <div class="row-between">
+          <span id="sentenceCounter" class="muted small">0/200</span>
+          <button id="btnSubmit" class="btn btn-primary">إرسال</button>
+        </div>
+      </div>
+
+      <div id="waitArea" class="wait-area hidden">
+        <span class="typing-dots"><i></i><i></i><i></i></span>
+        <span class="muted small">يكتب الآن…</span>
+      </div>
+
+      <div id="doneArea" class="done-area hidden">
+        <p class="muted center">اكتملت كل الجمل ✦</p>
+        <button id="btnReveal" class="btn btn-primary btn-block hidden">اكشف القصة</button>
+        <p id="doneWaitGuest" class="muted small center hidden">بانتظار أن يكشف المضيف القصة…</p>
+      </div>
+    </section>
+
+    <!-- 5. REVEAL -->
+    <section id="screen-reveal" class="screen">
+      <h2 class="screen-title">القصة كاملة</h2>
+      <div id="revealPanel" class="story-panel reveal-panel"></div>
+      <div class="reveal-actions">
+        <button id="btnSkipReveal" class="btn btn-ghost btn-sm">تخطّي</button>
+        <button id="btnOpenVoting" class="btn btn-primary hidden">افتح التصويت</button>
+        <p id="revealWaitGuest" class="muted center hidden">بانتظار أن يفتح المضيف التصويت…</p>
+      </div>
+    </section>
+
+    <!-- 6. VOTING -->
+    <section id="screen-voting" class="screen">
+      <div class="row-between">
+        <h2 class="screen-title" id="votingTitle">صوّت للأفضل</h2>
+        <span id="voteCounter" class="pill">صوّت 0 من 0</span>
+      </div>
+      <p class="muted small center">اختر الجملة الأفضل — لا يمكنك اختيار جملتك.</p>
+      <div id="votingPanel" class="story-panel voting-panel"></div>
+      <div class="voting-actions">
+        <button id="btnCastVote" class="btn btn-primary btn-block" disabled>صوّت</button>
+        <button id="btnEndVoting" class="btn btn-ghost btn-sm hidden">إنهاء التصويت</button>
+      </div>
+    </section>
+
+    <!-- 7. RESULTS -->
+    <section id="screen-results" class="screen">
+      <div id="winnerBanner" class="winner-banner"></div>
+      <div id="resultsPanel" class="story-panel results-panel"></div>
+      <button id="btnNewGame" class="btn btn-primary btn-block hidden">لعبة جديدة</button>
+      <p id="resultsWaitGuest" class="muted center hidden">بانتظار أن يبدأ المضيف لعبة جديدة…</p>
+    </section>
+  </main>
+
+  <!-- Live reactions bar (in-game) -->
+  <div id="reactionBar" class="reaction-bar hidden">
+    <button class="emoji-btn" data-emoji="😂">😂</button>
+    <button class="emoji-btn" data-emoji="❤️">❤️</button>
+    <button class="emoji-btn" data-emoji="😮">😮</button>
+    <button class="emoji-btn" data-emoji="🔥">🔥</button>
+    <button class="emoji-btn" data-emoji="👏">👏</button>
+  </div>
+
+  <!-- Overlay effect layers -->
+  <div id="fxEmoji" class="fx-emoji" aria-hidden="true"></div>
+  <canvas id="fxCanvas" class="fx-canvas" aria-hidden="true"></canvas>
+  <div id="titleCard" class="title-card" aria-hidden="true"><span id="titleCardText"></span></div>
+
+  <!-- Toasts -->
+  <div id="toastHost" class="toast-host" aria-live="assertive"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/audio.js"></script>
+  <script src="/effects.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
