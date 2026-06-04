@@ -21,6 +21,8 @@
   let revealCtl = null;     // typewriter controller
   let wasYourTurn = false;
   let joining = false;
+  let resultsAnimating = false; // dramatic results reveal in progress
+  let resultsTimers = [];       // pending timeouts for the reveal sequence
 
   // --- session persistence ---------------------------------------------------
   function saveSession(s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
@@ -48,7 +50,12 @@
     $('reactionBar').classList.remove('hidden');
 
     const phaseChanged = room.phase !== prevPhase;
-    if (room.phase !== 'WRITING') { Countdown.stop(); Effects.tension(false); }
+    if (room.phase !== 'RESULTS') cancelResultsReveal();
+    if (room.phase !== 'WRITING') {
+      Countdown.stop();
+      // Keep the tension vignette alive through the dramatic results reveal.
+      if (!(room.phase === 'RESULTS' && resultsAnimating)) Effects.tension(false);
+    }
 
     switch (room.phase) {
       case 'LOBBY': renderLobby(); break;
@@ -65,8 +72,8 @@
         break;
       case 'RESULTS':
         show('screen-results');
-        if (phaseChanged) enterResults();
-        renderResults();
+        if (phaseChanged) startResultsReveal();
+        else if (!resultsAnimating) renderResults(); // late updates: paint final state
         break;
     }
     prevPhase = room.phase;
@@ -249,50 +256,137 @@
   }
 
   // ===========================================================================
-  // RESULTS
+  // RESULTS — dramatic reveal: bars race up, drumroll, then the winner lands.
   // ===========================================================================
-  function enterResults() {
-    const r = room.results || {};
-    Effects.confetti({ shared: r.sharedWin });
-    Audio2.play('winner');
+  function clearResultsTimers() {
+    resultsTimers.forEach(clearTimeout);
+    resultsTimers = [];
+  }
+  function cancelResultsReveal() {
+    if (!resultsAnimating && resultsTimers.length === 0) return;
+    clearResultsTimers();
+    resultsAnimating = false;
+  }
+  function later(fn, ms) {
+    const id = setTimeout(fn, ms);
+    resultsTimers.push(id);
+    return id;
   }
 
-  function renderResults() {
-    const r = room.results || {};
-    const maxVotes = Math.max(1, ...room.story.map((s) => s.votes || 0));
-
-    // winner banner
-    let banner = '';
+  function winnerBannerHtml(r) {
     if (r.noVotes) {
-      banner = `<div class="crown">🤷</div><h2>ما صوّت أحد</h2><div class="sub">لا توجد جملة فائزة هذه الجولة</div>`;
-    } else if (r.sharedWin) {
-      const names = r.winners.map((w) => esc(w.authorName || '—')).join(' و ');
-      banner = `<div class="crown">👑</div><h2>تعادل!</h2><div class="sub">فوز مشترك: ${names}</div>`;
-    } else if (r.winners && r.winners[0]) {
-      const w = r.winners[0];
-      banner = `<div class="crown">👑</div><h2>الجملة الفائزة</h2><div class="sub">بقلم <b>${esc(w.authorName || '—')}</b> · ${w.votes} صوت</div>`;
+      return `<div class="crown">🤷</div><h2>ما صوّت أحد</h2><div class="sub">لا توجد جملة فائزة هذه الجولة</div>`;
     }
-    $('winnerBanner').innerHTML = banner;
+    if (r.sharedWin) {
+      const names = r.winners.map((w) => esc(w.authorName || '—')).join(' و ');
+      return `<div class="crown">👑</div><h2>تعادل!</h2><div class="sub">فوز مشترك: ${names}</div>`;
+    }
+    if (r.winners && r.winners[0]) {
+      const w = r.winners[0];
+      return `<div class="crown">👑</div><h2>الجملة الفائزة</h2><div class="sub">بقلم <b>${esc(w.authorName || '—')}</b> · ${w.votes} صوت</div>`;
+    }
+    return '';
+  }
 
-    $('resultsPanel').innerHTML = room.story.map((s) => {
+  // zero=true renders the suspense state: bars at 0, counts at 0, no winner glow.
+  function resultsLinesHtml(zero) {
+    const maxVotes = Math.max(1, ...room.story.map((s) => s.votes || 0));
+    return room.story.map((s) => {
       const cls = ['s-line'];
       if (s.isStarter) cls.push('starter');
-      if (s.isWinner) cls.push('winner');
+      if (!zero && s.isWinner) cls.push('winner');
       const num = s.isStarter ? '' : `<span class="s-num">${s.index}.</span>`;
       let meta = '';
       if (!s.isStarter) {
         const pct = Math.round(((s.votes || 0) / maxVotes) * 100);
         meta = `<div class="s-meta">
-          <span class="s-bar"><i style="width:${pct}%"></i></span>
-          <span class="votes">${s.votes || 0}</span>
+          <span class="s-bar"><i style="width:${zero ? 0 : pct}%"></i></span>
+          <span class="votes" data-votes="${s.votes || 0}" data-pct="${pct}">${zero ? 0 : (s.votes || 0)}</span>
           <span class="author">بقلم <b>${esc(s.authorName || '—')}</b></span>
         </div>`;
       }
-      return `<div class="${cls.join(' ')}">${num}${esc(s.text)}${meta}</div>`;
+      return `<div class="${cls.join(' ')}" data-winner="${s.isWinner ? 1 : 0}">${num}${esc(s.text)}${meta}</div>`;
     }).join('');
+  }
 
+  function updateResultsControls() {
     $('btnNewGame').classList.toggle('hidden', !room.isHost);
     $('resultsWaitGuest').classList.toggle('hidden', room.isHost);
+  }
+
+  function animateCount(el, target, dur) {
+    if (target <= 0) { el.textContent = '0'; return; }
+    const start = performance.now();
+    (function tick(now) {
+      const t = Math.min(1, (now - start) / dur);
+      el.textContent = String(Math.round(target * (1 - Math.pow(1 - t, 2))));
+      if (t < 1) requestAnimationFrame(tick);
+    })(start);
+  }
+
+  // Static paint (reconnects / late updates after the reveal has played).
+  function renderResults() {
+    const r = room.results || {};
+    $('winnerBanner').innerHTML = winnerBannerHtml(r);
+    $('resultsPanel').innerHTML = resultsLinesHtml(false);
+    updateResultsControls();
+  }
+
+  function startResultsReveal() {
+    clearResultsTimers();
+    const r = room.results || {};
+
+    // No drama when there's nothing to race (no votes) or motion is reduced.
+    if (r.noVotes || Effects.isReduce()) {
+      resultsAnimating = false;
+      renderResults();
+      if (!r.noVotes) { Effects.confetti({ shared: r.sharedWin }); Audio2.play('winner'); }
+      return;
+    }
+
+    resultsAnimating = true;
+    $('winnerBanner').innerHTML =
+      `<div class="crown rolling">🎲</div><h2>مَن سيفوز؟</h2><div class="sub suspense">يُحتسب التصويت<span class="ell"></span></div>`;
+    $('resultsPanel').innerHTML = resultsLinesHtml(true);
+    $('btnNewGame').classList.add('hidden');
+    $('resultsWaitGuest').classList.add('hidden');
+
+    Effects.tension(true);
+    Audio2.play('drumroll');
+
+    const lines = Array.from($('resultsPanel').querySelectorAll('.s-line:not(.starter)'));
+    const START = 350, STAGGER = 130, CLIMB = 850;
+    lines.forEach((line, i) => {
+      later(() => {
+        const bar = line.querySelector('.s-bar > i');
+        const votesEl = line.querySelector('.votes');
+        const pct = parseInt(votesEl.dataset.pct, 10) || 0;
+        const target = parseInt(votesEl.dataset.votes, 10) || 0;
+        if (bar) bar.style.width = pct + '%';
+        animateCount(votesEl, target, CLIMB);
+        if (target > 0) Audio2.play('tally_tick');
+      }, START + i * STAGGER);
+    });
+
+    const revealAt = Math.max(1600, START + Math.max(0, lines.length - 1) * STAGGER + CLIMB);
+    later(() => climaxWinner(r), revealAt);
+  }
+
+  function climaxWinner(r) {
+    $('resultsPanel').querySelectorAll('.s-line').forEach((line) => {
+      if (line.dataset.winner === '1') line.classList.add('winner', 'crowned');
+    });
+    $('winnerBanner').innerHTML = winnerBannerHtml(r);
+    const crown = $('winnerBanner').querySelector('.crown');
+    if (crown) crown.classList.add('drop');
+
+    Effects.confetti({ shared: r.sharedWin });
+    Audio2.play('winner');
+    Effects.tension(false);
+
+    resultsAnimating = false;
+    clearResultsTimers();
+    updateResultsControls();
   }
 
   // ===========================================================================

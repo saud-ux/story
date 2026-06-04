@@ -279,7 +279,38 @@ body { position: relative; overflow-x: hidden; }
 .s-meta .author { color: var(--muted); }
 .s-meta .author b { color: var(--text); }
 .s-bar { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; flex: 1; }
-.s-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--amber), var(--gold)); border-radius: 4px; }
+.s-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--amber), var(--gold)); border-radius: 4px; transition: width 0.85s cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+/* Dramatic results reveal */
+.winner-banner .crown.rolling { animation: rollDie 0.6s linear infinite; }
+@keyframes rollDie {
+  0% { transform: rotate(0) scale(1); }
+  50% { transform: rotate(180deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.winner-banner .crown.drop { animation: crownDrop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@keyframes crownDrop {
+  0% { transform: translateY(-34px) scale(0.4); opacity: 0; }
+  60% { transform: translateY(4px) scale(1.2); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.suspense .ell::after { content: ''; animation: ell 1s steps(1, end) infinite; }
+@keyframes ell {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+.results-panel .s-line.winner.crowned { animation: winnerPop 0.7s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+@keyframes winnerPop {
+  0% { transform: scale(0.97); box-shadow: 0 0 0 1px var(--gold), 0 0 0 rgba(255, 212, 121, 0); }
+  50% { transform: scale(1.03); box-shadow: 0 0 0 1px var(--gold), 0 0 50px rgba(255, 212, 121, 0.5); }
+  100% { transform: scale(1); box-shadow: 0 0 0 1px var(--gold), 0 0 34px rgba(255, 212, 121, 0.25); }
+}
+.reduce-motion .winner-banner .crown.rolling,
+.reduce-motion .winner-banner .crown.drop,
+.reduce-motion .suspense .ell::after,
+.reduce-motion .results-panel .s-line.winner.crowned { animation: none; }
 
 /* --- Reactions bar --------------------------------------------------------- */
 .reaction-bar {

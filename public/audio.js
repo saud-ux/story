@@ -1,6 +1,7 @@
 /* ===========================================================================
    audio.js — synthesized SFX via Web Audio API (no files, zero deps).
-   Cues: turn_start, submit, timer_tick, vote_cast, reveal_tick, winner.
+   Cues: turn_start, submit, timer_tick, vote_cast, reveal_tick,
+         drumroll, tally_tick, winner.
    AudioContext is created/resumed on the first user gesture. Respects mute.
    Modular: swap synths for samples later without touching callers.
    =========================================================================== */
@@ -97,6 +98,23 @@
     reveal_tick() {
       ensureContext();
       tone({ type: 'square', freq: 1400, dur: 0.025, gain: 0.05 });
+    },
+    // Suspense roll that accelerates into a low boom — fires while the
+    // vote bars climb, landing right as the winner is crowned (~1.6s).
+    drumroll() {
+      ensureContext();
+      const n = 20;
+      let t = 0;
+      for (let i = 0; i < n; i++) {
+        noise({ dur: 0.05, gain: 0.05 + 0.12 * (i / n), freq: 200, q: 1.4, delay: t });
+        t += 0.085 - 0.05 * (i / n); // each hit a touch sooner than the last
+      }
+      tone({ type: 'sine', freq: 100, to: 60, dur: 0.45, gain: 0.22, delay: t });
+    },
+    // Soft blip as a sentence's vote count ticks up.
+    tally_tick() {
+      ensureContext();
+      tone({ type: 'triangle', freq: 740, dur: 0.05, gain: 0.07 });
     },
     winner() {
       ensureContext();
